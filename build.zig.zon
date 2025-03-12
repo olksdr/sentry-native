@@ -1,0 +1,19 @@
+.{
+    .name = .sentry_native,
+    .version = "0.1.0",
+    .fingerprint = 0x8c2691ae4ce6c4cf,
+    .minimum_zig_version = "0.14.0",
+    .dependencies = .{
+        .@"sentry-native" = .{
+            .url = "git+https://github.com/getsentry/sentry-native.git#ccef7125b3783210f44ee6b100df7278e6ba3eff",
+            .hash = "N-V-__8AAJmoHgAPxgAObxk1ekBBdb0LSAf71bFKKpgSq5aS",
+        },
+    },
+    .paths = .{
+        "build.zig",
+        "build.zig.zon",
+        "src",
+        "README.md",
+        "LICENSE",
+    },
+}
