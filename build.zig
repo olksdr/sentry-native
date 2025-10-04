@@ -3,6 +3,28 @@ const std = @import("std");
 // The version of the `sentry-native` SDK.
 const version: std.SemanticVersion = .{ .major = 0, .minor = 8, .patch = 1 };
 
+// Helper function to run the system command and return the stdout with trimmed whitespaces and new lines.
+fn run_cmd(opts: struct {
+    allocator: std.mem.Allocator,
+    argv: []const []const u8,
+    cwd: ?[]const u8 = null,
+}) ![]const u8 {
+    std.log.info("{s}", .{try std.mem.join(opts.allocator, " ", opts.argv)});
+
+    const cmd = try std.process.Child.run(.{
+        .allocator = opts.allocator,
+        .argv = opts.argv,
+        .cwd = opts.cwd,
+    });
+
+    if (cmd.term.Exited != 0) {
+        std.log.err("Faild with error: {s}", .{cmd.stderr});
+        return error.NonZeroExit;
+    }
+
+    return std.mem.trim(u8, cmd.stdout, &.{ ' ', '\n', '\r' });
+}
+
 pub fn build(b: *std.Build) void {
     // Import dependency.
     const upstream = b.dependency("sentry-native", .{});
@@ -14,6 +36,12 @@ pub fn build(b: *std.Build) void {
     const linkage = b.option(std.builtin.LinkMode, "linkage", "Link mode of the sentry_native library (default: static)") orelse .static;
     const with_in_proc_backend = b.option(bool, "inproc", "Enable inproc backend (default: true)") orelse true;
     const with_zlib = b.option(bool, "zlib", "Enable transport compression (default: false)") orelse false;
+
+    // Get the SDK path.
+    const sdk_path = run_cmd(.{
+        .allocator = b.allocator,
+        .argv = &.{ "xcrun", "--show-sdk-path" },
+    }) catch @panic("Unable to run command to get the MacOS sdk path.");
 
     // Prepare the build of the static library.
     const sentry_native = b.addLibrary(.{
@@ -32,7 +60,7 @@ pub fn build(b: *std.Build) void {
     }
 
     // Compiler flags.
-    const cflags: []const []const u8 = &.{ "-Wall", "-pedantic", "-O2", "-fpic", "-MTd", "-pthread" };
+    const cflags: []const []const u8 = &.{ "-Wall", "-pedantic", "-O2", "-fpic", "-MTd", "-pthread", "-isysroot", sdk_path };
 
     // Enable transport compression.
     if (with_zlib) {
@@ -142,7 +170,6 @@ pub const sentry_unix_src: []const []const u8 = &.{
 // The common source files used to build the `sentry-native` library.
 pub const sentry_src: []const []const u8 = &.{
     "src/sentry_uuid.c",
-    // "src/modulefinder/sentry_modulefinder_aix.c",
     "src/sentry_sync.c",
     "src/sentry_options.c",
     "src/sentry_utils.c",
